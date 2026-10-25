@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="StudyFlow — Smart Student Task Planner with Binary Min-Heap Priority Queue, Custom Hash Map, and Merge Sort.">
+    <title>StudyFlow — Smart Student Task Planner</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar" aria-label="Main Navigation">
+            <div class="sidebar-header">
+                <div class="app-brand">
+                    <div class="brand-icon">SF</div>
+                    <div>
+                        <div>StudyFlow</div>
+                        <div style="font-size: 0.68rem; font-weight: 500; color: #94a3b8;">Task Planner</div>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-link active" data-view="dashboard" id="nav-dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-link" data-view="tasks" id="nav-tasks">
+                    <span class="nav-icon">📋</span>
+                    <span>All Tasks</span>
+                    <span class="dsa-badge" id="sidebar-task-count">0</span>
+                </button>
+                <button class="nav-link" data-view="dsa-lab" id="nav-dsa-lab">
+                    <span class="nav-icon">🧪</span>
+                    <span>DSA Lab</span>
+                    <span class="dsa-badge" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">Core</span>
+                </button>
+                <button class="nav-link" data-view="viva-guide" id="nav-viva-guide">
+                    <span class="nav-icon">🎓</span>
+                    <span>Viva Guide</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div>Academic Mini-Project</div>
+                <div style="color: #64748b; font-size: 0.72rem; margin-top: 0.2rem;">Data Structures & Algorithms in JS</div>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="main-wrapper">
+            <!-- Top Sticky Header -->
+            <header class="top-header" role="banner">
+                <div class="header-left">
+                    <button class="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Toggle mobile menu">☰</button>
+                    <div class="search-bar-container">
+                        <span class="search-icon">🔍</span>
+                        <input type="search" id="global-search-input" class="search-input" placeholder="Search tasks, subjects..." aria-label="Search tasks">
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="btn-load-demo" title="Load sample academic tasks">
+                        <span>⚡ Demo Data</span>
+                    </button>
+                    <button class="btn btn-primary" id="btn-quick-add">
+                        <span>＋ New Task</span>
+                    </button>
+                    <button class="btn-icon" id="theme-toggle-btn" title="Toggle Dark/Light Mode" aria-label="Toggle color theme">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="content-area" role="main">
+                <!-- 1. DASHBOARD VIEW -->
+                <section id="view-dashboard" class="view-section active" aria-labelledby="dashboard-heading">
+                    <div class="view-header">
+                        <div class="view-title-group">
+                            <h2 id="dashboard-heading">Academic Dashboard</h2>
+                            <p class="view-subtitle" id="dashboard-subtitle">Prioritized scheduling powered by Binary Min-Heap</p>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper total">📚</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stat-total">0</div>
+                                <div class="stat-label">Total Tasks</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper pending">⏳</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stat-pending">0</div>
+                                <div class="stat-label">Active / Pending</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper overdue">⚠️</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stat-overdue">0</div>
+                                <div class="stat-label">Overdue Tasks</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper completed">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stat-completed">0</div>
+                                <div class="stat-label">Completed</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon-wrapper progress">🎯</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="stat-progress">0%</div>
+                                <div class="stat-label">Completion Rate</div>
+                                <div class="progress-container">
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="stat-progress-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Next Recommended Task (Powered by Min-Heap Root) -->
+                    <div class="recommendation-hero" id="recommendation-hero-card">
+                        <div class="hero-tag">⚡ Next Recommended Task (Min-Heap Root)</div>
+                        <div class="hero-content">
+                            <div class="hero-details">
+                                <h3 class="hero-title" id="hero-task-title">No pending tasks!</h3>
+                                <div class="hero-reason" id="hero-task-reason">Your academic queue is clear. Click "+ New Task" or load demo data to start.</div>
+                                <div class="hero-meta-row" id="hero-meta-row">
+                                    <span class="hero-meta-item" id="hero-task-subject">—</span>
+                                    <span class="hero-meta-item" id="hero-task-due">—</span>
+                                    <span class="hero-meta-item" id="hero-task-priority">—</span>
+                                </div>
+                            </div>
+                            <div class="hero-actions" id="hero-actions-container">
+                                <button class="btn hero-btn-complete" id="hero-btn-complete">Mark Done ✓</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Two Column Panels -->
+                    <div class="dashboard-columns">
+                        <!-- Left Panel: Today & Urgent -->
+                        <div class="dashboard-panel">
+                            <div class="panel-header">
+                                <div class="panel-title">
+                                    <span>🔥</span>
+                                    <span>Today's Focus & Urgent Tasks</span>
+                                </div>
+                                <span class="dsa-badge" id="today-tasks-count">0</span>
+                            </div>
+                            <div id="dashboard-today-list">
+                                <!-- Dynamic Today Tasks -->
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Upcoming Deadlines (Merge Sorted) -->
+                        <div class="dashboard-panel">
+                            <div class="panel-header">
+                                <div class="panel-title">
+                                    <span>📅</span>
+                                    <span>Upcoming Deadlines (Merge Sorted)</span>
+                                </div>
+                                <span class="dsa-badge" id="upcoming-tasks-count">0</span>
+                            </div>
+                            <div id="dashboard-upcoming-list">
+                                <!-- Dynamic Upcoming Deadlines -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. ALL TASKS VIEW -->
+                <section id="view-tasks" class="view-section" aria-labelledby="tasks-heading">
+                    <div class="view-header">
+                        <div class="view-title-group">
+                            <h2 id="tasks-heading">All Academic Tasks</h2>
+                            <p class="view-subtitle">Manage, filter, and sort tasks with O(1) Hash Map lookups and O(n log n) Merge Sort</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" id="btn-tasks-add">＋ Add Task</button>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar & Filters -->
+                    <div class="toolbar-card">
+                        <div class="toolbar-filters">
+                            <select id="filter-subject" class="filter-select" aria-label="Filter by subject">
+                                <option value="all">All Subjects</option>
+                            </select>
+
+                            <select id="filter-status" class="filter-select" aria-label="Filter by status">
+                                <option value="all">All Statuses</option>
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+
+                            <select id="filter-importance" class="filter-select" aria-label="Filter by importance">
+                                <option value="all">All Importances</option>
+                                <option value="5">Level 5 (Urgent)</option>
+                                <option value="4">Level 4 (High)</option>
+                                <option value="3">Level 3 (Medium)</option>
+                                <option value="2">Level 2 (Medium-Low)</option>
+                                <option value="1">Level 1 (Low)</option>
+                            </select>
+
+                            <select id="sort-by" class="filter-select" aria-label="Sort tasks">
+                                <option value="deadline_asc">Deadline (Earliest First) [MergeSort]</option>
+                                <option value="deadline_desc">Deadline (Latest First) [MergeSort]</option>
+                                <option value="priority_asc">Priority Urgency (Min-Heap Order)</option>
+                                <option value="importance_desc">Importance (High to Low)</option>
+                                <option value="title_asc">Title (Alphabetical)</option>
+                            </select>
+                        </div>
+
+                        <div class="toolbar-actions">
+                            <button class="btn btn-secondary btn-danger" id="btn-clear-all" title="Clear all tasks">
+                                🗑️ Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Task Cards Container -->
+                    <div class="tasks-grid" id="tasks-list-container">
+                        <!-- Dynamic Task Cards -->
+                    </div>
+                </section>
+
+                <!-- 3. DSA INTERACTIVE LAB VIEW -->
+                <section id="view-dsa-lab" class="view-section" aria-labelledby="dsa-heading">
+                    <div class="view-header">
+                        <div class="view-title-group">
+                            <h2 id="dsa-heading">Data Structures & Algorithms Laboratory</h2>
+                            <p class="view-subtitle">Interactive visualizer for Binary Min-Heap, Hash Map Separate Chaining, and Merge Sort</p>
+                        </div>
+                    </div>
+
+                    <div class="dsa-lab-container">
+                        <!-- Heap Visualizer Card -->
+                        <div class="dsa-section-card">
+                            <div class="dsa-section-header">
+                                <div class="dsa-title">
+                                    <span>🌲</span>
+                                    <span>Binary Min-Heap Priority Queue (Tree & Array)</span>
+                                </div>
+                                <div class="dsa-controls-row">
+                                    <button class="btn btn-secondary" id="lab-extract-min" title="Extract root element with lowest priority score">
+                                        ⚡ Extract Min (O(log n))
+                                    </button>
+                                    <button class="btn btn-secondary" id="lab-peek" title="View root element without removal">
+                                        👁️ Peek Root (O(1))
+                                    </button>
+                                    <button class="btn btn-secondary" id="lab-rebuild" title="Rebuild heap bottom-up in O(n)">
+                                        🔄 Rebuild Heap (O(n))
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Add Test Node to Heap -->
+                            <div style="display: flex; gap: 0.65rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+                                <input type="text" id="lab-insert-title" class="form-input" placeholder="Test task title..." style="max-width: 240px;">
+                                <select id="lab-insert-importance" class="form-select" style="max-width: 140px;">
+                                    <option value="5">Level 5 (Urgent)</option>
+                                    <option value="4">Level 4 (High)</option>
+                                    <option value="3" selected>Level 3 (Medium)</option>
+                                    <option value="2">Level 2 (Low)</option>
+                                    <option value="1">Level 1 (Lowest)</option>
+                                </select>
+                                <button class="btn btn-primary" id="lab-btn-insert">Insert Node (O(log n))</button>
+                            </div>
+
+                            <!-- Interactive SVG Tree Representation -->
+                            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                                Interactive Tree Representation
+                            </h4>
+                            <div class="heap-tree-container" id="heap-tree-view">
+                                <!-- Dynamic SVG Tree -->
+                            </div>
+
+                            <!-- 0-Indexed Array Representation -->
+                            <h4 style="font-size: 0.95rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: var(--text-primary);">
+                                0-Indexed Array Representation (Level-Order)
+                            </h4>
+                            <div id="heap-array-view">
+                                <!-- Dynamic Array Cards -->
+                            </div>
+
+                            <!-- Heap Sift Operation Logs -->
+                            <h4 style="font-size: 0.95rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: var(--text-primary);">
+                                Heap Operations & Sift Log (heapifyUp / heapifyDown)
+                            </h4>
+                            <div id="heap-logs-view">
+                                <!-- Dynamic Operation Logs -->
+                            </div>
+                        </div>
+
+                        <!-- Hash Map Inspector Card -->
+                        <div class="dsa-section-card">
+                            <div class="dsa-section-header">
+                                <div class="dsa-title">
+                                    <span>🗄️</span>
+                                    <span>Custom Hash Map Inspector (Separate Chaining)</span>
+                                </div>
+                            </div>
+                            <div id="hashmap-inspection-view">
+                                <!-- Dynamic Hash Map Inspector -->
+                            </div>
+
+                            <!-- Live Hash Function Tester -->
+                            <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--divider);">
+                                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-primary);">
+                                    Polynomial Rolling Hash Calculator
+                                </h4>
+                                <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                                    <input type="text" id="hash-calc-input" class="form-input" placeholder="Type key string (e.g. task_101)..." style="max-width: 280px;">
+                                    <button class="btn btn-secondary" id="hash-calc-btn">Compute Hash</button>
+                                    <div id="hash-calc-result" style="font-family: monospace; font-size: 0.9rem; font-weight: 600; color: var(--primary);"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Merge Sort & Algorithmic Complexity Overview -->
+                        <div class="dsa-section-card">
+                            <div class="dsa-section-header">
+                                <div class="dsa-title">
+                                    <span>📐</span>
+                                    <span>Algorithm Complexity Reference & Formulas</span>
+                                </div>
+                            </div>
+                            <div class="complexity-grid">
+                                <div class="complexity-card">
+                                    <h4>Binary Min-Heap</h4>
+                                    <table class="complexity-table">
+                                        <thead><tr><th>Operation</th><th>Time</th><th>Space</th></tr></thead>
+                                        <tbody>
+                                            <tr><td>Peek Root</td><td>O(1)</td><td>O(1)</td></tr>
+                                            <tr><td>Insert + heapifyUp</td><td>O(log n)</td><td>O(1)</td></tr>
+                                            <tr><td>ExtractMin + heapifyDown</td><td>O(log n)</td><td>O(1)</td></tr>
+                                            <tr><td>Floyd Rebuild</td><td>O(n)</td><td>O(1)</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="complexity-card">
+                                    <h4>Custom Hash Map</h4>
+                                    <table class="complexity-table">
+                                        <thead><tr><th>Operation</th><th>Average</th><th>Worst</th></tr></thead>
+                                        <tbody>
+                                            <tr><td>Get / Search</td><td>O(1)</td><td>O(n)</td></tr>
+                                            <tr><td>Set / Insert</td><td>O(1)</td><td>O(n)</td></tr>
+                                            <tr><td>Delete</td><td>O(1)</td><td>O(n)</td></tr>
+                                            <tr><td>Resize & Rehash</td><td>O(n + m)</td><td>O(n + m)</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="complexity-card">
+                                    <h4>Custom Merge Sort</h4>
+                                    <table class="complexity-table">
+                                        <thead><tr><th>Metric</th><th>Complexity</th><th>Property</th></tr></thead>
+                                        <tbody>
+                                            <tr><td>Best Case</td><td>O(n log n)</td><td>Stable</td></tr>
+                                            <tr><td>Average Case</td><td>O(n log n)</td><td>Predictable</td></tr>
+                                            <tr><td>Worst Case</td><td>O(n log n)</td><td>Divide & Conquer</td></tr>
+                                            <tr><td>Aux Space</td><td>O(n)</td><td>Recursive depth O(log n)</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. VIVA GUIDE & DOCUMENTATION VIEW -->
+                <section id="view-viva-guide" class="view-section" aria-labelledby="viva-heading">
+                    <div class="view-header">
+                        <div class="view-title-group">
+                            <h2 id="viva-heading">College Viva Voce & Technical Guide</h2>
+                            <p class="view-subtitle">Comprehensive examiner questions and answers prepared for academic project evaluation</p>
+                        </div>
+                    </div>
+
+                    <div class="dsa-lab-container" id="viva-qa-container">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT TASK -->
+    <div class="modal-overlay" id="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title" id="task-modal-title">Add Academic Task</h3>
+                <button class="modal-close-btn" id="task-modal-close" aria-label="Close dialog">&times;</button>
+            </div>
+            <form id="task-form">
+                <input type="hidden" id="form-task-id">
+                <div class="modal-body">
+                    <!-- Title -->
+                    <div class="form-group">
+                        <label class="form-label" for="form-title">Task Title *</label>
+                        <input type="text" id="form-title" class="form-input" placeholder="e.g. Operating Systems Lab 4 Submission" required minlength="2">
+                    </div>
+
+                    <!-- Subject & Due Date -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="form-subject">Subject *</label>
+                            <input type="text" id="form-subject" class="form-input" list="subject-suggestions" placeholder="e.g. Data Structures" required>
+                            <datalist id="subject-suggestions">
+                                <option value="Data Structures">
+                                <option value="Operating Systems">
+                                <option value="DBMS">
+                                <option value="Computer Networks">
+                                <option value="Mathematics">
+                                <option value="Web Technologies">
+                                <option value="Software Engineering">
+                            </datalist>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="form-due-date">Due Date & Time *</label>
+                            <input type="datetime-local" id="form-due-date" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <!-- Importance Selector -->
+                    <div class="form-group">
+                        <label class="form-label">Importance Level (Weight in Priority Score)</label>
+                        <div class="importance-selector">
+                            <div class="importance-option">
+                                <input type="radio" id="imp-1" name="form-importance" value="1">
+                                <label class="importance-label" for="imp-1">
+                                    <span>1</span>
+                                    <span>Low</span>
+                                </label>
+                            </div>
+                            <div class="importance-option">
+                                <input type="radio" id="imp-2" name="form-importance" value="2">
+                                <label class="importance-label" for="imp-2">
+                                    <span>2</span>
+                                    <span>Medium-</span>
+                                </label>
+                            </div>
+                            <div class="importance-option">
+                                <input type="radio" id="imp-3" name="form-importance" value="3" checked>
+                                <label class="importance-label" for="imp-3">
+                                    <span>3</span>
+                                    <span>Medium</span>
+                                </label>
+                            </div>
+                            <div class="importance-option">
+                                <input type="radio" id="imp-4" name="form-importance" value="4">
+                                <label class="importance-label" for="imp-4">
+                                    <span>4</span>
+                                    <span>High</span>
+                                </label>
+                            </div>
+                            <div class="importance-option">
+                                <input type="radio" id="imp-5" name="form-importance" value="5">
+                                <label class="importance-label" for="imp-5">
+                                    <span>5</span>
+                                    <span>Urgent</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-group">
+                        <label class="form-label" for="form-status">Initial Status</label>
+                        <select id="form-status" class="form-select">
+                            <option value="Pending" selected>Pending</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label class="form-label" for="form-description">Description / Notes (Optional)</label>
+                        <textarea id="form-description" class="form-textarea" rows="3" placeholder="Add assignment guidelines, requirements or notes..."></textarea>
+                    </div>
+
+                    <!-- Live Priority Score Preview -->
+                    <div style="background-color: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; font-size: 0.82rem;">
+                        <span style="font-weight: 700; color: var(--primary);">Computed Priority Score: </span>
+                        <span id="form-score-preview" style="font-family: monospace; font-weight: 700;">—</span>
+                        <div class="form-help">Formula: Hours Remaining + (5 - Importance) × 12 + Overdue Penalty</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="task-modal-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="task-modal-submit">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRM ACTION (DELETE / CLEAR) -->
+    <div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="modal-card" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirm-modal-title">Confirm Action</h3>
+                <button class="modal-close-btn" id="confirm-modal-close" aria-label="Close dialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message" style="color: var(--text-secondary); font-size: 0.95rem;"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="confirm-modal-cancel">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-modal-proceed">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Application Scripts in Strict Dependency Order -->
+    <script src="js/storage.js"></script>
+    <script src="js/hashMap.js"></script>
+    <script src="js/priorityQueue.js"></script>
+    <script src="js/sorting.js"></script>
+    <script src="js/taskManager.js"></script>
+    <script src="js/visualizer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

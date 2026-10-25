@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>StudyFlow — Automated Unit & Integration Test Suite</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; padding: 20px; background: #0f172a; color: #f8fafc; }
+        .suite { margin-bottom: 24px; background: #1e293b; padding: 16px; border-radius: 8px; border: 1px solid #334155; }
+        .suite h2 { margin-top: 0; font-size: 1.15rem; color: #818cf8; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        .test-result { padding: 6px 10px; margin: 4px 0; border-radius: 4px; font-size: 0.88rem; display: flex; justify-content: space-between; }
+        .pass { background: rgba(16, 185, 129, 0.15); color: #34d399; border-left: 3px solid #10b981; }
+        .fail { background: rgba(239, 68, 68, 0.2); color: #f87171; border-left: 3px solid #ef4444; font-weight: bold; }
+        #summary-banner { padding: 16px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; font-size: 1.1rem; }
+        .all-passed { background: #065f46; color: #a7f3d0; border: 1px solid #059669; }
+        .some-failed { background: #7f1d1d; color: #fecaca; border: 1px solid #dc2626; }
+    </style>
+</head>
+<body>
+    <h1>StudyFlow Verification & Test Runner</h1>
+    <div id="summary-banner">Running tests...</div>
+    <div id="test-output"></div>
+
+    <!-- Core Scripts to Test -->
+    <script src="js/storage.js"></script>
+    <script src="js/hashMap.js"></script>
+    <script src="js/priorityQueue.js"></script>
+    <script src="js/sorting.js"></script>
+    <script src="js/taskManager.js"></script>
+    <script src="js/visualizer.js"></script>
+
+    <script>
+        const suites = [];
+        let currentSuite = null;
+        let totalPassed = 0;
+        let totalFailed = 0;
+
+        function describe(suiteName, fn) {
+            currentSuite = { name: suiteName, tests: [] };
+            suites.push(currentSuite);
+            try {
+                fn();
+            } catch (err) {
+                currentSuite.tests.push({ title: 'Suite Execution Exception', pass: false, error: err.message });
+                totalFailed++;
+            }
+        }
+
+        function it(testName, fn) {
+            try {
+                fn();
+                currentSuite.tests.push({ title: testName, pass: true });
+                totalPassed++;
+            } catch (err) {
+                currentSuite.tests.push({ title: testName, pass: false, error: err.message });
+                totalFailed++;
+            }
+        }
+
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        function assertEqual(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(`${message || 'Mismatch'} - Expected: ${expected}, Got: ${actual}`);
+            }
+        }
+
+        // ==========================================
+        // 1. Custom HashMap Tests
+        // ==========================================
+        describe('Custom Hash Map Tests (Separate Chaining & Dynamic Resizing)', () => {
+            it('should initialize with default capacity and zero size', () => {
+                const map = new CustomHashMap(16, 0.75);
+                assertEqual(map.capacity, 16);
+                assertEqual(map.size, 0);
+                assertEqual(map.getLoadFactor(), 0);
+            });
+
+            it('should correctly set and get key-value pairs', () => {
+                const map = new CustomHashMap(16);
+                map.set('task_1', { title: 'First Task' });
+                map.set('task_2', { title: 'Second Task' });
+                
+                assert(map.has('task_1'), 'Should have task_1');
+                assert(map.has('task_2'), 'Should have task_2');
+                assertEqual(map.get('task_1').title, 'First Task');
+                assertEqual(map.get('task_2').title, 'Second Task');
+                assertEqual(map.size, 2);
+            });
+
+            it('should update existing key without increasing size', () => {
+                const map = new CustomHashMap(16);
+                map.set('keyA', 100);
+                assertEqual(map.get('keyA'), 100);
+                assertEqual(map.size, 1);
+
+                map.set('keyA', 200);
+                assertEqual(map.get('keyA'), 200);
+                assertEqual(map.size, 1);
+            });
+
+            it('should handle collisions gracefully using separate chaining', () => {
+                const map = new CustomHashMap(16, 0.75);
+                // 'Aa' and 'BB' are the classic textbook collision pair for 31-multiplier polynomial hashes:
+                // 'A'*31 + 'a' = 65*31 + 97 = 2112; 'B'*31 + 'B' = 66*31 + 66 = 2112.
+                map.set('Aa', 'Value 1');
+                map.set('BB', 'Value 2');
+
+                assertEqual(map.get('Aa'), 'Value 1');
+                assertEqual(map.get('BB'), 'Value 2');
+                assertEqual(map.size, 2);
+
+                const stats = map.getInspectionData();
+                assert(stats.totalCollisions > 0, 'Collisions must be recorded');
+                assert(stats.maxChainLength >= 2, 'Bucket chain must contain both collided entries');
+
+                // Verify deleting one does not affect the other in the chain
+                map.delete('Aa');
+                assertEqual(map.get('Aa'), undefined);
+                assertEqual(map.get('BB'), 'Value 2');
+                assertEqual(map.size, 1);
+            });
+
+            it('should dynamically resize when load factor >= 0.75 and rehash all keys', () => {
+                const map = new CustomHashMap(8, 0.75); // initial capacity 8, threshold at 6 items
+                assertEqual(map.capacity, 8);
+
+                for (let i = 1; i <= 6; i++) {
+                    map.set(`item_${i}`, i * 10);
+                }
+                // Resizing should have triggered: capacity doubled to 16
+                assert(map.capacity >= 16, `Capacity should have doubled to at least 16, got ${map.capacity}`);
+                assert(map.resizeCount >= 1, 'Resize count should increment');
+
+                // Verify all items are still intact after rehash
+                for (let i = 1; i <= 6; i++) {
+                    assertEqual(map.get(`item_${i}`), i * 10);
+                }
+            });
+
+            it('should delete a key from bucket chain correctly', () => {
+                const map = new CustomHashMap(16);
+                map.set('del_1', 'A');
+                map.set('del_2', 'B');
+                assertEqual(map.size, 2);
+
+                const deleted = map.delete('del_1');
+                assert(deleted, 'Delete should return true');
+                assertEqual(map.get('del_1'), undefined);
+                assertEqual(map.has('del_1'), false);
+                assertEqual(map.get('del_2'), 'B');
+                assertEqual(map.size, 1);
+
+                assert(!map.delete('non_existent'), 'Delete on non-existent key should return false');
+            });
+        });
+
+        // ==========================================
+        // 2. Binary Min-Heap Priority Queue Tests
+        // ==========================================
+        describe('Binary Min-Heap Priority Queue Tests (Invariants & Tie-Breaks)', () => {
+            function verifyMinHeapInvariant(heap) {
+                const arr = heap.heap;
+                for (let i = 1; i < arr.length; i++) {
+                    const parent = Math.floor((i - 1) / 2);
+                    const cmp = heap.compare(arr[parent], arr[i]);
+                    assert(cmp <= 0, `Heap invariant violated: parent [${parent}] (${arr[parent].priorityScore}) > child [${i}] (${arr[i].priorityScore})`);
+                }
+            }
+
+            it('should maintain min-heap invariant on repeated insertions', () => {
+                const heap = new BinaryMinHeap();
+                const now = Date.now();
+
+                const tasks = [
+                    { id: 't1', title: 'Task 1', dueDate: new Date(now + 24 * 3600000).toISOString(), importance: 3 },
+                    { id: 't2', title: 'Task 2 (Urgent)', dueDate: new Date(now + 2 * 3600000).toISOString(), importance: 5 },
+                    { id: 't3', title: 'Task 3 (Overdue)', dueDate: new Date(now - 4 * 3600000).toISOString(), importance: 4 },
+                    { id: 't4', title: 'Task 4 (Low)', dueDate: new Date(now + 72 * 3600000).toISOString(), importance: 1 },
+                    { id: 't5', title: 'Task 5', dueDate: new Date(now + 12 * 3600000).toISOString(), importance: 4 }
+                ];
+
+                tasks.forEach(t => heap.insert(t));
+                assertEqual(heap.size(), 5);
+                verifyMinHeapInvariant(heap);
+
+                // Overdue task (t3) must be root because it has the lowest score (most urgent)
+                assertEqual(heap.peek().id, 't3');
+            });
+
+            it('should extract minimum elements in strictly ascending priority score order', () => {
+                const heap = new BinaryMinHeap();
+                const now = Date.now();
+
+                for (let i = 0; i < 15; i++) {
+                    const dueOffset = (Math.random() * 80 - 20) * 3600000;
+                    heap.insert({
+                        id: `rand_${i}`,
+                        title: `Random ${i}`,
+                        dueDate: new Date(now + dueOffset).toISOString(),
+                        importance: Math.floor(Math.random() * 5) + 1,
+                        status: 'Pending'
+                    });
+                }
+
+                assertEqual(heap.size(), 15);
+                verifyMinHeapInvariant(heap);
+
+                let previousScore = -Infinity;
+                while (!heap.isEmpty()) {
+                    const minTask = heap.extractMin();
+                    assert(minTask.priorityScore >= previousScore, `ExtractMin order violation: ${minTask.priorityScore} < ${previousScore}`);
+                    previousScore = minTask.priorityScore;
+                    verifyMinHeapInvariant(heap);
+                }
+            });
+
+            it('should enforce deterministic tie-breaking for identical priority scores', () => {
+                const heap = new BinaryMinHeap();
+                // Create two tasks with identical score but different due dates
+                const tA = { id: 'A', title: 'A', priorityScore: 10.0, dueDate: '2026-10-25T12:00', importance: 3 };
+                const tB = { id: 'B', title: 'B', priorityScore: 10.0, dueDate: '2026-10-25T10:00', importance: 3 };
+
+                // tB has earlier due date, so compare(tB, tA) should be < 0
+                assert(heap.compare(tB, tA) < 0, 'Earlier due date must win tie-break');
+
+                // If due dates are equal, higher importance must win
+                const tC = { id: 'C', title: 'C', priorityScore: 10.0, dueDate: '2026-10-25T12:00', importance: 5 };
+                assert(heap.compare(tC, tA) < 0, 'Higher importance must win tie-break');
+
+                // If everything is equal, ID string comparison determines order
+                const tD = { id: 'AAA', title: 'AAA', priorityScore: 10.0, dueDate: '2026-10-25T12:00', importance: 3 };
+                const tE = { id: 'ZZZ', title: 'ZZZ', priorityScore: 10.0, dueDate: '2026-10-25T12:00', importance: 3 };
+                assert(heap.compare(tD, tE) < 0, 'Lexicographical ID comparison must win tie-break');
+            });
+
+            it('should perform bottom-up Floyd rebuild in O(n) maintaining heap invariants', () => {
+                const heap = new BinaryMinHeap();
+                const now = Date.now();
+                const tasks = [];
+                for (let i = 0; i < 20; i++) {
+                    tasks.push({
+                        id: `item_${i}`,
+                        title: `Item ${i}`,
+                        dueDate: new Date(now + (i * 5) * 3600000).toISOString(),
+                        importance: (i % 5) + 1,
+                        status: 'Pending'
+                    });
+                }
+                heap.rebuild(tasks);
+                assertEqual(heap.size(), 20);
+                verifyMinHeapInvariant(heap);
+            });
+
+            it('should remove arbitrary task by ID and preserve invariants', () => {
+                const heap = new BinaryMinHeap();
+                const now = Date.now();
+                for (let i = 0; i < 10; i++) {
+                    heap.insert({
+                        id: `task_${i}`,
+                        title: `Task ${i}`,
+                        dueDate: new Date(now + (i * 4) * 3600000).toISOString(),
+                        importance: 3,
+                        status: 'Pending'
+                    });
+                }
+
+                // Remove root
+                assert(heap.removeById('task_0'), 'Should remove task_0');
+                verifyMinHeapInvariant(heap);
+                assertEqual(heap.size(), 9);
+
+                // Remove middle element
+                assert(heap.removeById('task_5'), 'Should remove task_5');
+                verifyMinHeapInvariant(heap);
+                assertEqual(heap.size(), 8);
+            });
+        });
+
+        // ==========================================
+        // 3. Custom Merge Sort Tests
+        // ==========================================
+        describe('Custom Merge Sort Algorithm Tests (Divide & Conquer O(n log n))', () => {
+            it('should correctly sort tasks by deadline in ascending order', () => {
+                const tasks = [
+                    { id: '1', dueDate: '2026-10-28T10:00' },
+                    { id: '2', dueDate: '2026-10-25T10:00' },
+                    { id: '3', dueDate: '2026-10-30T10:00' },
+                    { id: '4', dueDate: '2026-10-26T10:00' }
+                ];
+
+                const sorted = MergeSort.sort(tasks, MergeSort.comparators.byDeadlineAsc);
+                assertEqual(sorted[0].id, '2'); // Oct 25
+                assertEqual(sorted[1].id, '4'); // Oct 26
+                assertEqual(sorted[2].id, '1'); // Oct 28
+                assertEqual(sorted[3].id, '3'); // Oct 30
+            });
+
+            it('should guarantee stability (preserve relative input order of tied elements)', () => {
+                const tasks = [
+                    { id: 'first_tied', dueDate: '2026-10-25T10:00', importance: 3 },
+                    { id: 'other', dueDate: '2026-10-30T10:00', importance: 3 },
+                    { id: 'second_tied', dueDate: '2026-10-25T10:00', importance: 3 }
+                ];
+
+                const sorted = MergeSort.sort(tasks, (a, b) => {
+                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                });
+
+                assertEqual(sorted[0].id, 'first_tied', 'First tied item must appear first');
+                assertEqual(sorted[1].id, 'second_tied', 'Second tied item must appear second');
+                assertEqual(sorted[2].id, 'other');
+            });
+
+            it('should sort correctly by importance descending', () => {
+                const tasks = [
+                    { id: '1', importance: 2, dueDate: '2026-10-25T10:00' },
+                    { id: '2', importance: 5, dueDate: '2026-10-25T10:00' },
+                    { id: '3', importance: 4, dueDate: '2026-10-25T10:00' }
+                ];
+
+                const sorted = MergeSort.sort(tasks, MergeSort.comparators.byImportanceDesc);
+                assertEqual(sorted[0].id, '2'); // 5
+                assertEqual(sorted[1].id, '3'); // 4
+                assertEqual(sorted[2].id, '1'); // 2
+            });
+
+            it('should handle edge cases: empty array and single element', () => {
+                assertEqual(MergeSort.sort([]).length, 0);
+                const single = [{ id: 'one' }];
+                assertEqual(MergeSort.sort(single)[0].id, 'one');
+            });
+        });
+
+        // ==========================================
+        // 4. TaskManager Business Logic & CRUD Tests
+        // ==========================================
+        describe('TaskManager Business Logic, CRUD & Statistics Tests', () => {
+            const tm = new TaskManager();
+
+            it('should reject invalid task inputs with descriptive errors', () => {
+                const bad1 = tm.createTask({ title: '', subject: 'CS', dueDate: '2026-10-26T10:00', importance: 3 });
+                assert(!bad1.success, 'Empty title should fail validation');
+
+                const bad2 = tm.createTask({ title: 'Valid Title', subject: '', dueDate: '2026-10-26T10:00', importance: 3 });
+                assert(!bad2.success, 'Empty subject should fail validation');
+
+                const bad3 = tm.createTask({ title: 'Valid Title', subject: 'CS', dueDate: 'invalid-date', importance: 3 });
+                assert(!bad3.success, 'Invalid date should fail validation');
+            });
+
+            it('should create valid task, store in HashMap, and index in Min-Heap', () => {
+                tm.clearAll();
+                const res = tm.createTask({
+                    title: 'Database Schema Design',
+                    subject: 'DBMS',
+                    dueDate: '2026-10-26T14:00',
+                    importance: 4,
+                    status: 'Pending',
+                    description: 'Draft normalization tables'
+                });
+
+                assert(res.success, 'Task creation must succeed');
+                assert(tm.hashMap.has(res.task.id), 'Task must exist in CustomHashMap');
+                assertEqual(tm.priorityQueue.size(), 1);
+                assertEqual(tm.priorityQueue.peek().id, res.task.id);
+            });
+
+            it('should update task and automatically rebuild/resync heap scores', () => {
+                const all = tm.getAllTasks();
+                const target = all[0];
+                const originalScore = target.priorityScore;
+
+                // Update importance from 4 to 5 and move deadline closer
+                const res = tm.updateTask(target.id, {
+                    importance: 5,
+                    dueDate: new Date(Date.now() + 3600000).toISOString().slice(0, 16)
+                });
+
+                assert(res.success, 'Update must succeed');
+                const updated = tm.getTask(target.id);
+                assertEqual(updated.importance, 5);
+                assert(updated.priorityScore < originalScore, 'New score must be smaller (more urgent)');
+                assertEqual(tm.priorityQueue.peek().id, target.id);
+            });
+
+            it('should toggle task status and update active count', () => {
+                const target = tm.getAllTasks()[0];
+                assertEqual(target.status, 'Pending');
+
+                tm.toggleTaskStatus(target.id);
+                assertEqual(tm.getTask(target.id).status, 'Completed');
+                // Completed task should be excluded from active heap recommendations
+                assertEqual(tm.priorityQueue.size(), 0);
+
+                // Toggle back
+                tm.toggleTaskStatus(target.id);
+                assertEqual(tm.getTask(target.id).status, 'In Progress');
+                assertEqual(tm.priorityQueue.size(), 1);
+            });
+
+            it('should compute dashboard statistics correctly', () => {
+                tm.clearAll();
+                const now = Date.now();
+                
+                // 1 completed
+                tm.createTask({ title: 'Task 1', subject: 'CS', dueDate: new Date(now + 86400000).toISOString(), importance: 3, status: 'Completed' });
+                // 1 overdue pending
+                tm.createTask({ title: 'Task 2', subject: 'CS', dueDate: new Date(now - 86400000).toISOString(), importance: 4, status: 'Pending' });
+                // 1 future pending
+                tm.createTask({ title: 'Task 3', subject: 'Math', dueDate: new Date(now + 2 * 86400000).toISOString(), importance: 2, status: 'Pending' });
+
+                const stats = tm.getStats();
+                assertEqual(stats.total, 3);
+                assertEqual(stats.completed, 1);
+                assertEqual(stats.pending, 2);
+                assertEqual(stats.overdue, 1);
+                assertEqual(stats.completionRate, 33); // 1 / 3 = 33%
+            });
+        });
+
+        // ==========================================
+        // 5. XSS & HTML Injection Safety Test
+        // ==========================================
+        describe('DOM Safety & Injection Prevention Tests', () => {
+            it('should safely escape raw script and tag strings without executing', () => {
+                const tm = new TaskManager();
+                const maliciousInput = '<' + 'script>window.__xss_flag__ = true;<\/' + 'script><' + 'img src=x onerror="window.__xss_img__ = true;">';
+                
+                const res = tm.createTask({
+                    title: maliciousInput,
+                    subject: '<' + 'script>alert(1)<\/' + 'script>',
+                    dueDate: '2026-10-27T10:00',
+                    importance: 3,
+                    status: 'Pending'
+                });
+
+                assert(res.success, 'Creation succeeded');
+                // Simulate safe DOM insertion via textContent
+                const testDiv = document.createElement('div');
+                testDiv.textContent = res.task.title;
+
+                assert(window.__xss_flag__ === undefined, 'XSS script must never execute');
+                assert(window.__xss_img__ === undefined, 'XSS img onerror must never execute');
+                assertEqual(testDiv.textContent, maliciousInput);
+                assert(!testDiv.innerHTML.includes('<' + 'img src=x'), 'Must not create unescaped element tags');
+            });
+        });
+
+        // ==========================================
+        // Render Summary & Console Output
+        // ==========================================
+        const outputDiv = document.getElementById('test-output');
+        const banner = document.getElementById('summary-banner');
+
+        suites.forEach(suite => {
+            const suiteBox = document.createElement('div');
+            suiteBox.className = 'suite';
+
+            const h2 = document.createElement('h2');
+            h2.textContent = suite.name;
+            suiteBox.appendChild(h2);
+
+            suite.tests.forEach(test => {
+                const row = document.createElement('div');
+                row.className = `test-result ${test.pass ? 'pass' : 'fail'}`;
+
+                const title = document.createElement('span');
+                title.textContent = (test.pass ? '✓ ' : '✗ ') + test.title;
+
+                const status = document.createElement('span');
+                status.textContent = test.pass ? 'PASS' : `FAIL: ${test.error}`;
+
+                row.appendChild(title);
+                row.appendChild(status);
+                suiteBox.appendChild(row);
+            });
+
+            outputDiv.appendChild(suiteBox);
+        });
+
+        if (totalFailed === 0) {
+            banner.className = 'all-passed';
+            banner.textContent = `All Tests Passed! (${totalPassed} / ${totalPassed} checks successful) - Zero Failures.`;
+            console.log(`[TEST SUCCESS] All ${totalPassed} tests passed successfully.`);
+        } else {
+            banner.className = 'some-failed';
+            banner.textContent = `Test Failures Detected: ${totalFailed} failed out of ${totalPassed + totalFailed} tests.`;
+            console.error(`[TEST FAILURE] ${totalFailed} tests failed.`);
+        }
+
+        // Export test result to window for headless verification
+        window.__TEST_RESULTS__ = {
+            totalPassed,
+            totalFailed,
+            totalTests: totalPassed + totalFailed
+        };
+    </script>
+</body>
+</html>
